@@ -29,7 +29,11 @@ export default function VideoPlayer({
   setLoading,
   mediaList,
   ffmpeg,
-  fetchFile
+  fetchFile,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo
 }) {
     const formatTime = (time) => {
     const minutes = Math.floor(time / 60);
@@ -277,6 +281,16 @@ export default function VideoPlayer({
           variant="destructive"
         >
           Delete
+        </Button>
+
+        {/* Undo button */}
+        <Button onClick={onUndo} disabled={!canUndo} variant="secondary">
+          Undo
+        </Button>
+
+        {/* Redo button */}
+        <Button onClick={onRedo} disabled={!canRedo} variant="secondary">
+          Redo
         </Button>
 
         {/* Download button */}
