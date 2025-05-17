@@ -65,6 +65,51 @@ export default function Home() {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const chatContainerRef = useRef(null);
 
+  // Undo/Redo history stacks
+  const [undoStack, setUndoStack] = useState([]);
+  const [redoStack, setRedoStack] = useState([]);
+
+  const recordHistory = () => {
+    setUndoStack((prev) => [
+      ...prev,
+      {
+        timeline: JSON.parse(JSON.stringify(timelineTracks)),
+        media: JSON.parse(JSON.stringify(mediaList)),
+      },
+    ]);
+    setRedoStack([]); // clear redo stack on new action
+  };
+
+  const handleUndo = () => {
+    if (undoStack.length === 0) return;
+    const previous = undoStack[undoStack.length - 1];
+    setUndoStack((prev) => prev.slice(0, prev.length - 1));
+    setRedoStack((prev) => [
+      ...prev,
+      {
+        timeline: JSON.parse(JSON.stringify(timelineTracks)),
+        media: JSON.parse(JSON.stringify(mediaList)),
+      },
+    ]);
+    setTimelineTracks(previous.timeline);
+    setMediaList(previous.media);
+  };
+
+  const handleRedo = () => {
+    if (redoStack.length === 0) return;
+    const next = redoStack[redoStack.length - 1];
+    setRedoStack((prev) => prev.slice(0, prev.length - 1));
+    setUndoStack((prev) => [
+      ...prev,
+      {
+        timeline: JSON.parse(JSON.stringify(timelineTracks)),
+        media: JSON.parse(JSON.stringify(mediaList)),
+      },
+    ]);
+    setTimelineTracks(next.timeline);
+    setMediaList(next.media);
+  };
+
   // Load FFmpeg
   useEffect(() => {
     const loadFFmpeg = async () => {
@@ -95,6 +140,9 @@ export default function Home() {
   };
 
   const handleTimelineDrop = (e) => {
+    if (draggingMedia || draggingClip) {
+      recordHistory();
+    }
     if (draggingMedia) {
       // Calculate drop position
       const timelineRect = timelineRef.current.getBoundingClientRect();
@@ -145,6 +193,8 @@ export default function Home() {
 
     const { clip } = selectedClipInfo;
 
+    recordHistory();
+
     setTimelineTracks((prev) => [
       prev[0].filter((c) => c.clip_id !== clip.clip_id), // Filter out the deleted clip
     ]);
@@ -153,6 +203,7 @@ export default function Home() {
   };
 
   const deleteClip = (clip_id) => {
+    recordHistory();
     setTimelineTracks((prev) => [prev[0].filter((c) => c.clip_id !== clip_id)]);
   };
 
@@ -435,6 +486,7 @@ export default function Home() {
   const cutClip = async (clipId, cutPoint) => {
     console.log("timelinetrack");
     console.log(timelineTracks);
+    recordHistory();
     const clipToCut = timelineTracks[0].find((c) => c.clip_id === clipId);
     if (!clipToCut) {
       console.error("Clip not found with ID:", clipId);
@@ -605,6 +657,7 @@ export default function Home() {
 
         // Call the respective function based on the function name
         if (responseData.function_name === "cutClip") {
+          recordHistory();
           tempTimeline = await cutClipGpt(
             functionArgs.clipId,
             functionArgs.cutPoint,
@@ -617,18 +670,21 @@ export default function Home() {
         }
 
         if (responseData.function_name === "moveClip") {
+          recordHistory();
           moveClip(functionArgs.clipId, functionArgs.start, tempTimeline);
           setTimelineTracks(JSON.parse(JSON.stringify(tempTimeline)));
           setMediaList(JSON.parse(JSON.stringify(tempMediaList)));
         }
 
         if (responseData.function_name === "deleteClip") {
+          recordHistory();
           tempTimeline = deleteClipGpt(functionArgs.clipId, tempTimeline);
           setTimelineTracks(JSON.parse(JSON.stringify(tempTimeline)));
           setMediaList(JSON.parse(JSON.stringify(tempMediaList)));
         }
 
         if (responseData.function_name === "adjustBrightness") {
+          recordHistory();
           const [functionArgs, selectedClip, videoUrl] =
             parseModifyJson(responseData);
           if (videoUrl) {
@@ -654,6 +710,7 @@ export default function Home() {
         }
 
         if (responseData.function_name === "applyColorGrading") {
+          recordHistory();
           const [functionArgs, selectedClip, videoUrl] =
             parseModifyJson(responseData);
           if (videoUrl) {
@@ -681,6 +738,7 @@ export default function Home() {
         }
 
         if (responseData.function_name === "adjustSaturation") {
+          recordHistory();
           const [functionArgs, selectedClip, videoUrl] =
             parseModifyJson(responseData);
           if (videoUrl) {
@@ -706,6 +764,7 @@ export default function Home() {
         }
 
         if (responseData.function_name === "addBlurEffect") {
+          recordHistory();
           const [functionArgs, selectedClip, videoUrl] =
             parseModifyJson(responseData);
           if (videoUrl) {
@@ -731,6 +790,7 @@ export default function Home() {
         }
 
         if (responseData.function_name === "convertToGrayscale") {
+          recordHistory();
           const [functionArgs, selectedClip, videoUrl] =
             parseModifyJson(responseData);
           if (videoUrl) {
@@ -762,6 +822,7 @@ export default function Home() {
         }
 
         if (responseData.function_name === "trim_video") {
+          recordHistory();
           const selectedClip = timelineTracks[0].find(
             (clip) => clip.clip_id === functionArgs.clipId
           );
@@ -791,6 +852,7 @@ export default function Home() {
         }
 
         if (responseData.function_name === "applyFadeIn") {
+          recordHistory();
           const [functionArgs, selectedClip, videoUrl] =
             parseModifyJson(responseData);
           if (videoUrl) {
@@ -816,6 +878,7 @@ export default function Home() {
         }
 
         if (responseData.function_name === "applyFadeOut") {
+          recordHistory();
           const [functionArgs, selectedClip, videoUrl] =
             parseModifyJson(responseData);
           if (videoUrl) {
@@ -1034,8 +1097,12 @@ export default function Home() {
             setLoading={setLoading}
             mediaList={mediaList}
             ffmpeg={ffmpeg}
-            fetchFile={fetchFile}
-          />
+          fetchFile={fetchFile}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          canUndo={undoStack.length > 0}
+          canRedo={redoStack.length > 0}
+        />
 
           {/* Chat panel */}
           <div className="w-[400px] shrink-0 bg-[#161B22] border-l border-[#30363D] flex flex-col h-full">
