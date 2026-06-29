@@ -5,7 +5,11 @@ This is a video editing application built with [Next.js](https://nextjs.org) tha
 ## Features
 
 - **Video Upload**: Users can upload video files for editing.
-- **Video Transcription**: The application transcribes the audio from uploaded videos into text using a backend service.
+- **Video Transcription**: The application transcribes the audio from uploaded video
+
+https://github.com/user-attachments/assets/f6e2bd94-04fd-4ae4-a522-b7f3c16548a7
+
+s into text using a backend service.
 - **Real-time Processing**: Users can see the results of their edits and transcriptions in real-time.
 - **User-Friendly Interface**: Designed with a clean and intuitive interface for easy navigation and usage.
 
